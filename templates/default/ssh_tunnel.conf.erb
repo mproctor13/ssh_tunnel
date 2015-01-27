@@ -1,0 +1,9 @@
+description     "ssh_tunnel to <%= @remote_host %>"
+
+start on net-device-up
+stop on deconfiguring-networking
+
+respawn
+
+exec sudo -u <%= node["ssh_tunnel"]["source_user"] %> ssh -N <%= @tunnels %> <%= @username %>@<%= @remote_host %>
+
