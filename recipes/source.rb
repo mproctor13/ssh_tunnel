@@ -24,7 +24,6 @@
   This recipe setup ssh tunnels to destination nodes configured by the [ssh_tunnel::server](#ssh_tunnelserver)
 
   @section Usage
-    ```json
     {
       "name":"source_node",
       "ssh_tunnel": {
@@ -34,11 +33,11 @@
             "local_port": 443,
 	    "remote_port": 443,
             "remote_host": "localhost"
-	  },
+          },
           "http": {
             "reverse": true,
             "local_port": 80,
-	    "remote_port": 1234,
+            "remote_port": 1234,
             "remote_host": "localhost"
 	  }
         }
@@ -47,7 +46,6 @@
         "recipe[ssh_tunnel::source]"
       ]
     }
-    ```
 
 
   #>

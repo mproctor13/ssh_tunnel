@@ -24,7 +24,6 @@
   This recipe sets up node to allow connections for nodes configured by the [ssh_tunnel::source](#ssh_tunnelsource)
 
   @section Usage
-    ```json
     {
       "name":"destination_node",
       "ssh_tunnel": {
@@ -37,7 +36,6 @@
         "recipe[ssh_tunnel::server]"
       ]
     }
-    ```
 
 
   #>

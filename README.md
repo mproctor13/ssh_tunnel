@@ -33,7 +33,6 @@ Setup ssh tunnels between source and server.
 
 
 ### Usage
-    ```json
     {
       "name":"source_node",
       "ssh_tunnel": {
@@ -43,11 +42,11 @@ Setup ssh tunnels between source and server.
             "local_port": 443,
 	    "remote_port": 443,
             "remote_host": "localhost"
-	  },
+          },
           "http": {
             "reverse": true,
             "local_port": 80,
-	    "remote_port": 1234,
+            "remote_port": 1234,
             "remote_host": "localhost"
 	  }
         }
@@ -56,7 +55,6 @@ Setup ssh tunnels between source and server.
         "recipe[ssh_tunnel::source]"
       ]
     }
-    ```
 
 
 ## ssh_tunnel::server
@@ -65,7 +63,6 @@ Setup ssh tunnels between source and server.
 
 
 ### Usage
-    ```json
     {
       "name":"destination_node",
       "ssh_tunnel": {
@@ -78,7 +75,6 @@ Setup ssh tunnels between source and server.
         "recipe[ssh_tunnel::server]"
       ]
     }
-    ```
 
 
 
