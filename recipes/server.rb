@@ -41,6 +41,10 @@
   #>
 =end
 
+if Chef::Config[:solo]
+  Chef::Log.warn("This recipe uses search. Chef Solo does not support search.")
+end
+
 enabled = {}
 node_find = Proc.new {
   keys = []
@@ -53,7 +57,7 @@ node_find = Proc.new {
       Chef::Log.debug "nodes_found=[#{nodes.count}]"
       nodes.each do |node|
         unless node['ssh_tunnel']['ssh-pubkey'].nil?
-          node.set_unless["ssh_tunnel"]['configured'][node.fqdn] = true
+          node.default['ssh_tunnel']['configured'][node.fqdn] = true
           keys << node['ssh_tunnel']['ssh-pubkey']
 	  enabled[name] = true
         end
