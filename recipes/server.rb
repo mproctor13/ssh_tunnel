@@ -19,56 +19,57 @@
 # limitations under the License.
 #
 
-if node["ssh_tunnel"]["nologin"].nil?
-  node.set_unless["ssh_tunnel"]["nologin"] = `which nologin`.strip
-end
+=begin
+  #<
+  This recipe sets up node to allow connections for nodes configured by the [ssh_tunnel::source](#ssh_tunnelsource)
 
-user node["ssh_tunnel"]["server_user"] do
-  supports :manage_home => true, :non_unique => true
-  gid node["ssh_tunnel"]["server_group"]
-  uid 0
-  shell node["ssh_tunnel"]["nologin"]
-  action :create
-end
+  @section Usage
+    ```json
+    {
+      "name":"destination_node",
+      "ssh_tunnel": {
+        "tunnels": {
+          "chef": true,
+          "other": true
+        }
+      },
+      "run_list": [
+        "recipe[ssh_tunnel::server]"
+      ]
+    }
+    ```
 
-# Save host public key to chef-server 
-ruby_block 'node-save-hostkey' do
-  block do
-    node.set["ssh_tunnel"]['ssh-hostkey'] = File.read("/etc/ssh/ssh_host_rsa_key.pub")
-  end
-end
 
-keys = []
+  #>
+=end
+
 enabled = {}
-node['ssh_tunnel']['tunnels'].each do |name,active|
-  if active
-    sstr = "recipes:ssh_tunnel\\:\\:source AND ssh_tunnel_tunnels:#{name} AND chef_environment:#{node.chef_environment}"
-    nodes = search(:node, sstr)
-    nodes.each do |node|
-      unless node['ssh_tunnel']['ssh-pubkey'].nil?
-        node.set_unless["ssh_tunnel"]['configured'][node.fqdn] = true
-        keys << node['ssh_tunnel']['ssh-pubkey']
-	enabled[name] = true
+node_find = Proc.new {
+  keys = []
+  node['ssh_tunnel']['tunnels'].each do |name,active|
+    if active
+      env_limit = " AND chef_environment:#{node.chef_environment}"
+      sstr = "recipes:ssh_tunnel\\:\\:source AND ssh_tunnel_tunnels:#{name}#{env_limit}"
+      Chef::Log.debug "search=[#{sstr}]"
+      nodes = search(:node, sstr)
+      Chef::Log.debug "nodes_found=[#{nodes.count}]"
+      nodes.each do |node|
+        unless node['ssh_tunnel']['ssh-pubkey'].nil?
+          node.set_unless["ssh_tunnel"]['configured'][node.fqdn] = true
+          keys << node['ssh_tunnel']['ssh-pubkey']
+	  enabled[name] = true
+        end
       end
     end
   end
-end
+  keys
+}
 
-if keys.count > 0
-  directory "/home/#{node["ssh_tunnel"]["server_user"]}/.ssh" do
-    owner node["ssh_tunnel"]["server_user"]
-    group node["ssh_tunnel"]["server_group"]
-    mode "0700"
-    recursive true
-    action :create
-  end
-  template "/home/#{node["ssh_tunnel"]["server_user"]}/.ssh/authorized_keys" do
-    source "authorized_keys.erb"
-    owner node["ssh_tunnel"]["server_user"]
-    group node["ssh_tunnel"]["server_group"]
-    mode "0600"
-    variables :ssh_keys => keys
-  end
+ssh_dst "ssh_tunnel" do
+  dst_uid 0 # so that we can connect to privlaged ports
+  dst_username node["ssh_tunnel"]["server_user"]
+  dst_grpname node["ssh_tunnel"]["server_group"]
+  finder node_find
 end
 node.default["ssh_tunnel"]["enabled"] = enabled
 node.save unless Chef::Config['solo']

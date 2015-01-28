@@ -19,59 +19,66 @@
 # limitations under the License.
 #
 
+=begin
+  #<
+  This recipe setup ssh tunnels to destination nodes configured by the [ssh_tunnel::server](#ssh_tunnelserver)
 
-if node["ssh_tunnel"]["nologin"].nil?
-  node.set_unless["ssh_tunnel"]["nologin"] = `which nologin`.strip  
-end
+  @section Usage
+    ```json
+    {
+      "name":"source_node",
+      "ssh_tunnel": {
+        "tunnels": {
+          "https": {
+            "reverse": true,
+            "local_port": 443,
+	    "remote_port": 443,
+            "remote_host": "localhost"
+	  },
+          "http": {
+            "reverse": true,
+            "local_port": 80,
+	    "remote_port": 1234,
+            "remote_host": "localhost"
+	  }
+        }
+      },
+      "run_list": [
+        "recipe[ssh_tunnel::source]"
+      ]
+    }
+    ```
 
-user node["ssh_tunnel"]["source_user"] do
-  supports :manage_home => true
-  shell node["ssh_tunnel"]["nologin"]
-  action :create
-end
-directory "/home/#{node["ssh_tunnel"]["source_user"]}/.ssh" do
-  owner node["ssh_tunnel"]["source_user"]
-  group node["ssh_tunnel"]["source_group"]
-  mode "0700"
-  recursive true
-  action :create
-end
-execute "generate ssh key for #{node["ssh_tunnel"]["source_user"]}." do
-  user node["ssh_tunnel"]["source_user"]
-  creates "/home/#{node["ssh_tunnel"]["source_user"]}/.ssh/id_rsa.pub"
-  command "ssh-keygen -t rsa -q -f /home/#{node["ssh_tunnel"]["source_user"]}/.ssh/id_rsa -P \"\""
-end
 
-# Save public key to chef-server 
-ruby_block 'node-save-pubkey' do
-  block do
-    node.set["ssh_tunnel"]['ssh-pubkey'] = File.read("/home/#{node["ssh_tunnel"]["source_user"]}/.ssh/id_rsa.pub")
-    node.save unless Chef::Config['solo']
-  end
-end
+  #>
+=end
 
 hosts = {}
-host_keys = {}
-node["ssh_tunnel"]["tunnels"].each do |tunnel,config|
-  sstr = "recipes:ssh_tunnel\\:\\:server AND ssh_tunnel_enabled:#{tunnel} AND chef_environment:#{node.chef_environment}"
-  nodes = search(:node,  sstr)
-  nodes.each do |node|
-    hosts[node.name] = {} if hosts[node.name].nil?
-    hosts[node.name]["tunnel"] = [] if hosts[node.name]["tunnel"].nil?
-    hosts[node.name]["node"] = node
-    hosts[node.name]["tunnel"] << tunnel
-    host_keys[node["fqdn"]] = node["ssh_tunnel"]["ssh-hostkey"]
+node_find = Proc.new {
+  host_keys = {}
+  node["ssh_tunnel"]["tunnels"].each do |tunnel,config|
+    env_limit = " AND chef_environment:#{node.chef_environment}"
+    sstr = "recipes:ssh_tunnel\\:\\:server AND ssh_tunnel_enabled:#{tunnel}#{env_limit}"
+    Chef::Log.debug "search=[#{sstr}]"
+    nodes = search(:node,  sstr)
+    Chef::Log.debug "nodes_found=[#{nodes.count}]"
+    nodes.each do |node|
+      hosts[node.name] = {} if hosts[node.name].nil?
+      hosts[node.name]["tunnel"] = [] if hosts[node.name]["tunnel"].nil?
+      hosts[node.name]["node"] = node
+      hosts[node.name]["tunnel"] << tunnel
+      host_keys[node["fqdn"]] = node["ssh_tunnel"]["ssh-hostkey"]
+    end
   end
+  host_keys
+}
+
+ssh_src "ssh_tunnel" do
+  src_username node["ssh_tunnel"]["source_user"]
+  src_grpname node["ssh_tunnel"]["source_group"]
+  finder node_find
 end
 
-template "/home/#{node["ssh_tunnel"]["source_user"]}/.ssh/known_hosts" do
-  source "known_hosts.erb"
-  mode '0644'
-  owner 'root'
-  group 'root'
-  variables :host_keys => host_keys
-end
-  
 hosts.each do |nodename,values|
   options = []
   values['tunnel'].each do |tunnelname|
